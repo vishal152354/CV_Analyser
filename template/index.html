@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Processing Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        
+        #responseArea {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+
+            transition: all 0.3s ease-in-out; 
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-6">
+    <div class="bg-white rounded-2xl shadow-xl p-10 max-w-2xl w-full text-center border border-gray-100">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 tracking-tight">Resume Processor</h1>
+
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 p-6 rounded-xl mb-10 text-left">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 mr-2 text-blue-600">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.012 0-2.016.042-3.006.12A3 3 0 0 0 0 6.75v11.25A3 3 0 0 0 3 21h18a3 3 0 0 0 3-3V6.75A3 3 0 0 0 21 3.96c-1.009-.078-2.013-.12-3.006-.12A8.967 8.967 0 0 0 12 6.042Z" />
+                </svg>
+                Instructions
+            </h2>
+            <p class="text-base leading-relaxed text-gray-700">
+                To process resumes, place all your resume files (strictly PDF) into a folder named
+                <code class="font-mono bg-blue-100 text-blue-900 px-2 py-1 rounded-md text-sm font-semibold">data</code>
+                located in the same directory as your FastAPI application.
+            </p>
+            <p class="text-base leading-relaxed mt-3 text-gray-700">
+                Once the files are in place, click the "Process Resumes" button below to initiate the processing.
+                Then check the same directory for "applicant.csv" that contains all the extracted info
+            </p>
+        </div>
+
+        <button id="processButton"
+                class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:ring-opacity-75">
+            Process Resumes
+        </button>
+
+        <h2 class="text-2xl font-bold text-gray-800 mt-12 mb-5 border-b-2 border-gray-200 pb-3">Server Response</h2>
+        <pre id="responseArea"
+             class="bg-gray-50 border border-gray-200 rounded-lg p-5 text-left text-sm text-gray-800 overflow-auto max-h-72 shadow-inner">
+            Waiting for processing to start...
+        </pre>
+    </div>
+
+    <script>
+        document.getElementById('processButton').addEventListener('click', async () => {
+            const responseArea = document.getElementById('responseArea');
+
+            responseArea.textContent = 'Initiating processing... Please wait.';
+            responseArea.classList.remove('text-red-700', 'border-red-300', 'bg-red-100', 'text-green-700', 'border-green-300', 'bg-green-100'); // Clear all previous styles
+            responseArea.classList.add('text-gray-700', 'border-gray-200', 'bg-gray-50'); // Default processing style
+
+            const dataToSend = {
+                name: "resume_processing_request",
+                description: "Triggered from dashboard",
+                price: 0.0,
+                tax: 0.0
+            };
+
+            try {
+                console.log("Attempting to fetch from /run-python-script");
+                const response = await fetch('http://localhost:8000/run_python_script', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dataToSend)
+                });
+
+                if (!response.ok) {
+                    const errorDetails = await response.text(); 
+                    throw new Error(`HTTP error! Status: ${response.status}. Details: ${errorDetails}`);
+                }
+
+                const result = await response.json();
+                console.log('Success:', result);
+                responseArea.textContent = JSON.stringify(result, null, 2);
+                responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+                responseArea.classList.add('text-green-700', 'border-green-300', 'bg-green-100'); 
+
+            } catch (error) {
+                console.error('There has been a problem with your fetch operation:', error);
+                responseArea.textContent = `Error: ${error.message}`;
+                responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+                responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100'); 
+            }
+            
+        });
+    </script>
+</body>
+</html>
