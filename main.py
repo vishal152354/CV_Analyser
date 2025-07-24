@@ -35,7 +35,7 @@ async def upload_file(file: Annotated[UploadFile, File]):
     print("inside upload file")
 
     try:
-         destination_path = r"C:\Users\50054\Desktop\CV_Analyser\data"
+         destination_path = r"YOUR_PATH"
          destination_path = os.path.join(destination_path, file.filename)
          print(destination_path)
          async with aiofiles.open(destination_path, "wb") as out_file:
@@ -54,7 +54,7 @@ async def upload_file(file: Annotated[UploadFile, File]):
 async def run_script():
     print("inside run_script")
     try:
-        result = subprocess.run(["python", r"C:\Users\50054\Desktop\CV_Analyser\backend\view.py", "1"], capture_output=True, text=True, check=True)
+        result = subprocess.run(["python", r"PATH_VIEW_PY", "1"], capture_output=True, text=True, check=True)
         return {"message": f"Python script executed successfully! Output: {result.stdout}"}
     except subprocess.CalledProcessError as e:
         return {"message": f"Error running Python script: {e.stderr}"}
