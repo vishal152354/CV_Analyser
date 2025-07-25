@@ -19,9 +19,7 @@
                                                     file:text-sm file:font-semibold
                                                     file:bg-blue-50 file:text-blue-700
                                                     hover:file:bg-blue-100">
-            <button id="uploadButton" class="mt-4 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                Upload File
-            </button>
+            
             <div id="uploadResponseArea" class="mt-4 p-3 rounded-md border text-sm
                                                 text-gray-700 border-gray-200 bg-gray-50
                                                 hidden">
@@ -39,92 +37,83 @@
         </div>
     </div>
         
-    <script>
-        document.getElementById('uploadButton').addEventListener('click',async () => {
-            const uploadResponseArea = document.getElementById('uploadResponseArea')
-            uploadResponseArea.textContent = 'uploading....'
-            uploadResponseArea.classList.remove('text-red-700', 'border-red-300', 'bg-red-100', 'text-green-700', 'border-green-300', 'bg-green-100'); // Clear all previous styles
-            uploadResponseArea.classList.add('text-gray-700', 'border-gray-200', 'bg-gray-50');
+   <script>
+    document.getElementById('processButton').addEventListener('click', async () => {
+        const responseArea = document.getElementById('responseArea');
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
 
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0]
-            if (!file) {
-                    console.error('No file selected for upload.');
-                    // You might want to update your UI to show an error message
-                    return; // Stop the function if no file is chosen
+        // Clear previous styles and set processing message for the main response area
+        responseArea.textContent = 'Initiating processing... Please wait.';
+        responseArea.classList.remove('text-red-700', 'border-red-300', 'bg-red-100', 'text-green-700', 'border-green-300', 'bg-green-100');
+        responseArea.classList.add('text-gray-700', 'border-gray-200', 'bg-gray-50');
+
+        if (!file) {
+            console.error('No file selected for upload.');
+            responseArea.textContent = 'Error: No file selected.';
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100');
+            return; // Stop the function if no file is chosen
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            // 1. Upload the file
+            console.log("Attempting to upload file to /upload_file");
+            const uploadResponse = await fetch('http://localhost:8000/upload_file', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                const errorDetails = await uploadResponse.text();
+                throw new Error(`HTTP error! Status: ${uploadResponse.status}. Details: ${errorDetails}`);
             }
 
-            const formData = new FormData();
-            formData.append('file', file)
-            try {
-                console.log("Attempting to fetch from /upload_file");
-                const response = await fetch('http://localhost:8000/upload_file', {
-                    method: 'POST',
-                    body: formData
-                })
+            const uploadResult = await uploadResponse.json();
+            console.log('File Upload Success:', uploadResult);
 
-                if (!response.ok) {
-                    const errorDetails = await response.text(); 
-                    throw new Error(`HTTP error! Status: ${response.status}. Details: ${errorDetails}`);
-                }
-
-                const result = await response.json();
-                console.log('Success:', result);
-                uploadResponseArea.textContent = JSON.stringify(result, null, 2);
-                uploadResponseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
-                uploadResponseArea.classList.add('text-green-700', 'border-green-300', 'bg-green-100'); 
-
-            } catch (error) {
-                console.error('There has been a problem with your fetch operation:', error);
-                uploadResponseArea.textContent = `Error: ${error.message}`;
-                uploadResponseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
-                uploadResponseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100'); 
-            }
-            
-
-
-        });
-        document.getElementById('processButton').addEventListener('click', async () => {
-            const responseArea = document.getElementById('responseArea');
-
-            responseArea.textContent = 'Initiating processing... Please wait.';
-            responseArea.classList.remove('text-red-700', 'border-red-300', 'bg-red-100', 'text-green-700', 'border-green-300', 'bg-green-100'); // Clear all previous styles
-            responseArea.classList.add('text-gray-700', 'border-gray-200', 'bg-gray-50'); // Default processing style
-
+            // 2. Trigger the Python script after successful file upload
+            console.log("Attempting to fetch from /run_python_script");
             const dataToSend = {
                 name: "resume_processing_request",
                 description: "Triggered from dashboard",
+             
+                uploaded_file_info: uploadResult 
             };
 
-            try {
-                console.log("Attempting to fetch from /run_python_script");
-                const response = await fetch('http://localhost:8000/run_python_script', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(dataToSend)
-                });
+            const scriptResponse = await fetch('http://localhost:8000/run_python_script', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataToSend)
+            });
 
-                if (!response.ok) {
-                    const errorDetails = await response.text(); 
-                    throw new Error(`HTTP error! Status: ${response.status}. Details: ${errorDetails}`);
-                }
-
-                const result = await response.json();
-                console.log('Success:', result);
-                responseArea.textContent = JSON.stringify(result, null, 2);
-                responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
-                responseArea.classList.add('text-green-700', 'border-green-300', 'bg-green-100'); 
-
-            } catch (error) {
-                console.error('There has been a problem with your fetch operation:', error);
-                responseArea.textContent = `Error: ${error.message}`;
-                responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
-                responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100'); 
+            if (!scriptResponse.ok) {
+                const errorDetails = await scriptResponse.text();
+                throw new Error(`HTTP error! Status: ${scriptResponse.status}. Details: ${errorDetails}`);
             }
-            
-        });
-    </script>
+
+            const scriptResult = await scriptResponse.json();
+            console.log('Script Execution Success:', scriptResult);
+
+            // Update the main response area with the script execution result
+            responseArea.textContent = JSON.stringify(scriptResult, null, 2);
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-green-700', 'border-green-300', 'bg-green-100');
+
+        } catch (error) {
+            console.error('There has been a problem with your operation:', error);
+            responseArea.textContent = `Error: ${error.message}`;
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100');
+        }
+    });
+</script>
+
+   </script>
 </body>
 </html>
