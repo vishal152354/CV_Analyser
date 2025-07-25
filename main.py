@@ -1,60 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RESUME ANALYSER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-gray-100 min-h-screen flex flex-col items-center justify-center">
 
-from fastapi import FastAPI,Request,UploadFile,File,HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-import os
-import subprocess
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel 
-from typing import Annotated
-import aiofiles 
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800"> RESUME ANALYSER </h1>
 
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")  #  Specify your templates directory
+        <div class="mb-6 border-b pb-4 border-gray-200">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Upload File</h2>
+            <input type="file" id="fileInput" accept = "application/pdf" class="block w-full text-sm text-gray-500
+                                                    file:mr-4 file:py-2 file:px-4
+                                                    file:rounded-md file:border-0
+                                                    file:text-sm file:font-semibold
+                                                    file:bg-blue-50 file:text-blue-700
+                                                    hover:file:bg-blue-100">
+            
+            <div id="uploadResponseArea" class="mt-4 p-3 rounded-md border text-sm
+                                                text-gray-700 border-gray-200 bg-gray-50
+                                                hidden">
+                </div>
+        </div>
 
+        <div>
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Run Python Script</h2>
+            <button id="processButton" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                Process
+            </button>
+            <pre id="responseArea" class="mt-4 p-3 rounded-md border text-sm overflow-auto whitespace-pre-wrap
+                                          text-gray-700 border-gray-200 bg-gray-50">
+                </pre>
+        </div>
+    </div>
+        
+   <script>
+    document.getElementById('processButton').addEventListener('click', async () => {
+        const responseArea = document.getElementById('responseArea');
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allows all headers
-)
-class Item(BaseModel):
-    name: str
-    description: str | None = None
+       
+        responseArea.textContent = 'Initiating processing... Please wait.';
+        responseArea.classList.remove('text-red-700', 'border-red-300', 'bg-red-100', 'text-green-700', 'border-green-300', 'bg-green-100');
+        responseArea.classList.add('text-gray-700', 'border-gray-200', 'bg-gray-50');
 
+        if (!file) {
+            console.error('No file selected for upload.');
+            responseArea.textContent = 'Error: No file selected.';
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100');
+            return; // Stop the function if no file is chosen
+        }
 
-@app.get("/getmethod")
-async def read_root():
-    return {"message": "Hello from FastAPI!"}
+        const formData = new FormData();
+        formData.append('file', file);
 
+        try {
+            console.log("Attempting to upload file to /upload_file");
+            const uploadResponse = await fetch('http://localhost:8000/upload_file', {
+                method: 'POST',
+                body: formData
+            });
 
-@app.post('/upload_file')
-async def upload_file(file: Annotated[UploadFile, File]):
-    print("inside upload file")
+            if (!uploadResponse.ok) {
+                const errorDetails = await uploadResponse.text();
+                throw new Error(`HTTP error! Status: ${uploadResponse.status}. Details: ${errorDetails}`);
+            }
 
-    try:
-         destination_path = r"YOUR_PATH"
-         destination_path = os.path.join(destination_path, file.filename)
-         print(destination_path)
-         async with aiofiles.open(destination_path, "wb") as out_file:
-             content = await file.read()  
-             await out_file.write(content)
-         print(f"File '{file.filename}' successfully saved to '{destination_path}'")
-         return {"message": f"File '{file.filename}' uploaded successfully!", "location": destination_path}
-    except Exception as e:
-        print(f"ERROR: During file upload for '{file.filename}': {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload file. Server error: {e}")
+            const uploadResult = await uploadResponse.json();
+            console.log('File Upload Success:', uploadResult);
 
-    
+            console.log("Attempting to fetch from /run_python_script");
+            const dataToSend = {
+                name: "resume_processing_request",
+                description: "Triggered from dashboard",
+            
+                uploaded_file_info: uploadResult // Example: passing info from the upload response
+            };
 
+            const scriptResponse = await fetch('http://localhost:8000/run_python_script', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dataToSend)
+            });
 
-@app.post("/run_python_script")
-async def run_script():
-    print("inside run_script")
-    try:
-        result = subprocess.run(["python", r"PATH_VIEW_PY", "1"], capture_output=True, text=True, check=True)
-        return {"message": f"Python script executed successfully! Output: {result.stdout}"}
-    except subprocess.CalledProcessError as e:
-        return {"message": f"Error running Python script: {e.stderr}"}
+            if (!scriptResponse.ok) {
+                const errorDetails = await scriptResponse.text();
+                throw new Error(`HTTP error! Status: ${scriptResponse.status}. Details: ${errorDetails}`);
+            }
+
+            const scriptResult = await scriptResponse.json();
+            console.log('Script Execution Success:', scriptResult);
+            responseArea.textContent = JSON.stringify(scriptResult, null, 2);
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-green-700', 'border-green-300', 'bg-green-100');
+
+        } catch (error) {
+            console.error('There has been a problem with your operation:', error);
+            responseArea.textContent = `Error: ${error.message}`;
+            responseArea.classList.remove('text-gray-700', 'border-gray-200', 'bg-gray-50');
+            responseArea.classList.add('text-red-700', 'border-red-300', 'bg-red-100');
+        }
+    });
+</script>
+
+   </script>
+</body>
+</html>
